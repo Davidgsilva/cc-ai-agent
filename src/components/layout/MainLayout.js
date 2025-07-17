@@ -6,11 +6,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import ChatInterface from "../chat/ChatInterface";
 import PreferencesPanel from "../ui/PreferencesPanel";
 import CreditCardComparison from "../cards/CreditCardComparison";
+import CreditCardHero from "../cards/CreditCardHero";
 import RewardCalculator from "../cards/RewardCalculator";
+import { ThemeSwitcher } from "../ui/ThemeSwitcher";
 
 export default function MainLayout() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [sidebarContent, setSidebarContent] = useState("preferences");
+  const [cardView, setCardView] = useState("hero");
 
   const sampleCards = [
     {
@@ -56,31 +59,34 @@ export default function MainLayout() {
             <p className="text-sm text-default-500">Powered by Claude AI with Web Search</p>
           </div>
           
-          <div className="flex gap-2">
-            <Button
-              variant={showSidebar && sidebarContent === "preferences" ? "solid" : "bordered"}
-              color="primary"
-              size="sm"
-              onPress={() => handleSidebarToggle("preferences")}
-            >
-              Preferences
-            </Button>
-            <Button
-              variant={showSidebar && sidebarContent === "comparison" ? "solid" : "bordered"}
-              color="secondary"
-              size="sm"
-              onPress={() => handleSidebarToggle("comparison")}
-            >
-              Compare
-            </Button>
-            <Button
-              variant={showSidebar && sidebarContent === "calculator" ? "solid" : "bordered"}
-              color="success"
-              size="sm"
-              onPress={() => handleSidebarToggle("calculator")}
-            >
-              Calculator
-            </Button>
+          <div className="flex items-center gap-4">
+            <ThemeSwitcher />
+            <div className="flex gap-2">
+              <Button
+                variant={showSidebar && sidebarContent === "preferences" ? "solid" : "bordered"}
+                color="primary"
+                size="sm"
+                onPress={() => handleSidebarToggle("preferences")}
+              >
+                Preferences
+              </Button>
+              <Button
+                variant={showSidebar && sidebarContent === "comparison" ? "solid" : "bordered"}
+                color="secondary"
+                size="sm"
+                onPress={() => handleSidebarToggle("comparison")}
+              >
+                Compare
+              </Button>
+              <Button
+                variant={showSidebar && sidebarContent === "calculator" ? "solid" : "bordered"}
+                color="success"
+                size="sm"
+                onPress={() => handleSidebarToggle("calculator")}
+              >
+                Calculator
+              </Button>
+            </div>
           </div>
         </div>
       </header>
@@ -119,7 +125,22 @@ export default function MainLayout() {
                   {sidebarContent === "preferences" && <PreferencesPanel />}
                   {sidebarContent === "comparison" && (
                     <div className="p-4">
-                      <CreditCardComparison cards={sampleCards} />
+                      <div className="mb-4">
+                        <Tabs 
+                          aria-label="Card view options"
+                          selectedKey={cardView}
+                          onSelectionChange={setCardView}
+                          size="sm"
+                        >
+                          <Tab key="hero" title="Hero Cards" />
+                          <Tab key="table" title="Table View" />
+                        </Tabs>
+                      </div>
+                      {cardView === "hero" ? (
+                        <CreditCardHero cards={sampleCards} />
+                      ) : (
+                        <CreditCardComparison cards={sampleCards} />
+                      )}
                     </div>
                   )}
                   {sidebarContent === "calculator" && (
@@ -134,12 +155,13 @@ export default function MainLayout() {
         </AnimatePresence>
       </main>
 
-      <footer className="border-t border-divider bg-content1 px-6 py-3">
+      {/* <footer className="border-t border-divider bg-content1 px-6 py-3">
         <div className="flex items-center justify-between text-xs text-default-400">
           <span>AI-powered credit card recommendations with real-time web search</span>
           <span>Always verify offers with official sources</span>
         </div>
-      </footer>
+      </footer> */}
+
     </div>
   );
 }

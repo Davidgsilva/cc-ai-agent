@@ -40,6 +40,7 @@ export function useChat() {
         id: Date.now() + 1,
         role: 'assistant',
         content: '',
+        cards: [],
         timestamp: new Date()
       };
 
@@ -72,6 +73,15 @@ export function useChat() {
                   prev.map(msg => 
                     msg.id === assistantMessage.id 
                       ? { ...msg, content: msg.content + parsed.content }
+                      : msg
+                  )
+                );
+              } else if (parsed.type === 'cards' && parsed.cards) {
+                console.log('💳 Received structured card data:', parsed.cards.length, 'cards');
+                setMessages(prev => 
+                  prev.map(msg => 
+                    msg.id === assistantMessage.id 
+                      ? { ...msg, cards: parsed.cards }
                       : msg
                   )
                 );
