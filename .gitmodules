@@ -1,0 +1,3 @@
+[submodule "shadcn-chatbot-kit"]
+	path = shadcn-chatbot-kit
+	url = https://github.com/Blazity/shadcn-chatbot-kit.git

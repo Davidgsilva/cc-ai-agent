@@ -1,5 +1,5 @@
 export function validateChatRequest(body) {
-  const { message, preferences } = body;
+  const { message, preferences, provider } = body;
 
   if (!message || typeof message !== 'string') {
     throw new Error('Message is required and must be a string');
@@ -13,9 +13,14 @@ export function validateChatRequest(body) {
     throw new Error('Preferences must be an object');
   }
 
+  if (provider && !['openai', 'anthropic'].includes(provider)) {
+    throw new Error('Provider must be either "openai" or "anthropic"');
+  }
+
   return {
     message: message.trim(),
-    preferences: preferences || {}
+    preferences: preferences || {},
+    provider: provider || null
   };
 }
 

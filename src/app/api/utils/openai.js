@@ -1,18 +1,30 @@
 import OpenAI from 'openai';
 import { parseCreditsCardsFromText, enhanceCardWithWebData } from '../../../utils/cardParser.js';
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY environment variable is required');
+// OpenAI configuration
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+// Initialize OpenAI client
+let openai;
+
+if (OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: OPENAI_API_KEY,
+  });
+} else {
+  console.warn('OPENAI_API_KEY not found. OpenAI provider will not be available.');
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
+// Create OpenAI response with web search using Responses API
 export const createOpenAIResponse = async (userMessage, userPreferences = {}) => {
+  if (!openai) {
+    throw new Error('OpenAI client not initialized. Check OPENAI_API_KEY.');
+  }
+
   try {
     console.log('📤 Sending request to OpenAI API:', {
-      model: 'gpt-4o-mini',
+      model: 'gpt-4.1',
       messageLength: userMessage.length,
       preferences: Object.keys(userPreferences).length > 0 ? 'provided' : 'none'
     });
@@ -40,7 +52,7 @@ Guidelines:
 Remember to be helpful, accurate, and unbiased in your recommendations.`;
 
     const response = await openai.responses.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1",
       tools: [{ 
         type: "web_search_preview",
         search_context_size: "medium"
@@ -65,7 +77,9 @@ Remember to be helpful, accurate, and unbiased in your recommendations.`;
   }
 };
 
-// Create a streaming response compatible with the chat route
+
+
+// Create OpenAI streaming response using Responses API
 export const createOpenAIStreamingResponse = async (userMessage, userPreferences = {}) => {
   try {
     console.log('🌊 Creating OpenAI streaming response');
@@ -161,30 +175,15 @@ export const createOpenAIStreamingResponse = async (userMessage, userPreferences
   }
 };
 
-export const createCreditCardMessageForOpenAI = (userMessage, userPreferences = {}) => {
-  const systemPrompt = `You are an expert credit card advisor AI agent. Your role is to help users find the best credit cards based on their needs, spending patterns, and financial goals.
 
-Key responsibilities:
-1. Analyze user needs and recommend suitable credit cards
-2. Use web search to find current offers, terms, and promotional bonuses
-3. Compare cards across multiple criteria (rewards, APR, fees, benefits)
-4. Provide personalized recommendations based on spending categories
-5. Explain approval odds and requirements clearly
-6. Always cite your sources when providing specific card details
 
-User preferences: ${JSON.stringify(userPreferences)}
+// Export OpenAI provider information
+export const getOpenAIProviderInfo = () => ({
+  hasOpenAI: !!openai,
+  isAvailable: !!openai
+});
 
-Guidelines:
-- Always search for the most current information about credit cards
-- Focus on cards that match the user's spending patterns and credit profile
-- Explain both benefits and drawbacks of recommended cards
-- Include specific details like APR ranges, annual fees, and reward rates
-- Mention any current sign-up bonuses or promotional offers
-- Be transparent about your search sources
-
-Remember to be helpful, accurate, and unbiased in your recommendations.`;
-
-  return `${systemPrompt}\n\nUser request: ${userMessage}`;
-};
+// Check if OpenAI is available
+export const isOpenAIAvailable = () => !!openai;
 
 export default openai;

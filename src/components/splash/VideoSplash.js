@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import { Button } from '@heroui/react';
+import { Button } from '@/components/ui/button';
 
 // Hook to detect user's motion preference
 const useReducedMotion = () => {
@@ -200,7 +200,7 @@ const VideoSplash = ({
                 <Button
                   size="lg"
                   className="bg-white/20 backdrop-blur-sm hover:bg-white/30 border border-white/30 text-white font-semibold px-8 py-3 text-lg transition-all duration-300 hover:scale-105 focus:scale-105"
-                  onPress={onCTAClick}
+                  onClick={onCTAClick}
                   aria-label="Get started with our platform"
                 >
                   Get Started

@@ -5,7 +5,7 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const sendMessage = useCallback(async (message, preferences = {}) => {
+  const sendMessage = useCallback(async (message, preferences = {}, provider = null) => {
     if (!message.trim()) return;
 
     const userMessage = {
@@ -20,15 +20,22 @@ export function useChat() {
     setError(null);
 
     try {
+      const requestBody = {
+        message,
+        preferences
+      };
+
+      // Only include provider if it's explicitly set
+      if (provider) {
+        requestBody.provider = provider;
+      }
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message,
-          preferences
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {

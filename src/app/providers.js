@@ -1,6 +1,5 @@
 "use client";
 
-import { HeroUIProvider } from "@heroui/react";
 import { ThemeProvider } from "next-themes";
 
 export function Providers({ children }) {
@@ -12,9 +11,7 @@ export function Providers({ children }) {
       themes={['light', 'dark']}
       disableTransitionOnChange={false}
     >
-      <HeroUIProvider>
-        {children}
-      </HeroUIProvider>
+      {children}
     </ThemeProvider>
   );
 }
