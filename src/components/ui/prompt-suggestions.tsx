@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button"
+
 interface PromptSuggestionsProps {
   label: string
   append: (message: { role: "user"; content: string }) => void
@@ -10,17 +12,19 @@ export function PromptSuggestions({
   suggestions,
 }: PromptSuggestionsProps) {
   return (
-    <div className="space-y-6">
+    <div className="p-4">
       <h2 className="text-center text-2xl font-bold">{label}</h2>
-      <div className="flex gap-6 text-sm">
+      <div className="flex flex-col 2xl:flex-row gap-6 text-sm">
         {suggestions.map((suggestion) => (
-          <button
+          <Button
             key={suggestion}
+            variant="outline"
+            size="default"
             onClick={() => append({ role: "user", content: suggestion })}
-            className="h-max flex-1 rounded-xl border bg-background p-4 hover:bg-muted"
+            className="cursor-pointer hover:bg-accent"
           >
             <p>{suggestion}</p>
-          </button>
+          </Button>
         ))}
       </div>
     </div>

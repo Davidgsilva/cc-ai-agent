@@ -1,148 +1,283 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAnthropicStreamingResponse } from '../utils/anthropic.js';
-import { createOpenAIStreamingResponse } from '../utils/openai.js';
+import { createAnthropicJSONResponse } from '../utils/anthropic.js';
+import { createOpenAIJSONResponse } from '../utils/openai.js';
 import { getProviderInfo, getBestAvailableProvider } from '../utils/providers.js';
-import { validateChatRequest, chatRateLimiter } from '../utils/validation.js';
+import { validateChatRequest, validateCreditCardData } from '../utils/validation.js';
 import { parseCreditsCardsFromText, enhanceCardWithWebData } from '../../../utils/cardParser.js';
 
-// Create unified AI streaming response
-const createAIStreamingResponse = async (userMessage, userPreferences = {}, provider) => {
-  console.log(`🌊 Creating streaming response with ${provider} provider`);
+// Enhanced AI JSON response with validation
+const createAIJSONResponse = async (userMessage, userPreferences = {}, provider) => {
+  console.log(`🌊 Creating JSON response with ${provider} provider`);
+  console.log('🔍 User preferences:', userPreferences);
   
-  if (provider === 'openai') {
-    return await createOpenAIStreamingResponse(userMessage, userPreferences);
-  } else if (provider === 'anthropic') {
-    return await createAnthropicStreamingResponse(userMessage, userPreferences);
-  } else {
-    throw new Error(`Unknown provider: ${provider}. Use 'openai' or 'anthropic'.`);
+  let response;
+  
+  try {
+    if (provider === 'openai') {
+      response = await createOpenAIJSONResponse(userMessage, userPreferences);
+    } else if (provider === 'anthropic') {
+      response = await createAnthropicJSONResponse(userMessage, userPreferences);
+    } else {
+      throw new Error(`Unknown provider: ${provider}. Use 'openai' or 'anthropic'.`);
+    }
+
+    // Validate the response structure
+    console.log('✅ AI response created successfully');
+    return response;
+    
+  } catch (error) {
+    console.error(`❌ ${provider} response creation failed:`, {
+      message: error.message,
+      type: error.type || 'unknown',
+      code: error.code || 'unknown'
+    });
+    throw error;
   }
 };
 
+// Enhanced error response with more context
+const createErrorResponse = (message, status, details = {}) => {
+  console.error(`🚫 API Error (${status}):`, { message, details });
+  
+  return NextResponse.json(
+    { 
+      error: message,
+      status,
+      timestamp: new Date().toISOString(),
+      ...(process.env.NODE_ENV === 'development' && { details })
+    },
+    { status }
+  );
+};
+
 export async function POST(request) {
+  const startTime = Date.now();
+  
   try {
-    const clientIP = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+    // Enhanced client identification
+    const clientIP = request.ip || 
+                    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                    request.headers.get('x-real-ip') || 
+                    'unknown';
     
-    if (!chatRateLimiter.isAllowed(clientIP)) {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded. Please try again later.' },
-        { status: 429 }
-      );
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    
+    console.log('📥 Incoming chat request:', {
+      clientIP,
+      userAgent: userAgent.substring(0, 100),
+      timestamp: new Date().toISOString()
+    });
+
+    // Rate limiting can be added here if needed
+    console.log('📡 Request from client:', { clientIP });
+
+    // Parse and validate request body
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return createErrorResponse('Invalid JSON in request body', 400);
     }
 
-    const body = await request.json();
     const { message, preferences, provider } = validateChatRequest(body);
+
+    console.log('📝 Validated chat request:', {
+      messageLength: message.length,
+      preferencesProvided: Object.keys(preferences).length > 0,
+      requestedProvider: provider,
+      preferences: preferences
+    });
 
     // Get provider info and determine which provider to use
     const providerInfo = getProviderInfo();
-    const requestedProvider = provider;
     
-    console.log('🤖 Provider selection:', {
-      requested: requestedProvider,
+    console.log('🤖 Provider selection analysis:', {
+      requested: provider,
       default: providerInfo.currentProvider,
       hasOpenAI: providerInfo.hasOpenAI,
-      hasAnthropic: providerInfo.hasAnthropic
+      hasAnthropic: providerInfo.hasAnthropic,
+      availableProviders: providerInfo.availableProviders
     });
 
-    let response;
     let usedProvider;
+    let response;
 
-    // Get the best available provider
+    // Get the best available provider with enhanced error handling
     try {
-      usedProvider = getBestAvailableProvider(requestedProvider);
+      usedProvider = getBestAvailableProvider(provider);
       console.log(`🎯 Selected provider: ${usedProvider}`);
-    } catch (error) {
-      console.error('❌ No providers available:', error.message);
-      return NextResponse.json(
-        { error: 'No AI providers are available. Please check your API keys.' },
-        { status: 503 }
+    } catch (providerError) {
+      console.error('❌ No providers available:', {
+        error: providerError.message,
+        requestedProvider: provider,
+        availableProviders: providerInfo.availableProviders
+      });
+      
+      return createErrorResponse(
+        'No AI providers are available. Please check configuration.',
+        503,
+        { 
+          requestedProvider: provider,
+          availableProviders: providerInfo.availableProviders
+        }
       );
     }
 
+    // Attempt primary provider with detailed error tracking
     try {
-      // Use the unified AI streaming response function
-      console.log(`🎯 Using ${usedProvider} as AI provider`);
-      response = await createAIStreamingResponse(message, preferences, usedProvider);
+      console.log(`🎯 Attempting ${usedProvider} as primary AI provider`);
+      response = await createAIJSONResponse(message, preferences, usedProvider);
       
-      console.log('📡 Returning AI streaming response');
-      return new Response(response, {
+      const responseTime = Date.now() - startTime;
+      console.log('📡 Primary provider response successful:', {
+        provider: usedProvider,
+        responseTime: `${responseTime}ms`
+      });
+      
+      // Both providers now return JSON
+      return NextResponse.json(response, {
         headers: {
-          'Content-Type': 'text/event-stream',
-          'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
           'X-AI-Provider': usedProvider,
+          'X-Response-Time': `${responseTime}ms`,
+          'X-Data-Quality': 'enhanced-validation'
         },
       });
-    } catch (error) {
-      // If the primary provider fails, try the fallback
-      const fallbackProvider = usedProvider === 'openai' ? 'anthropic' : 'openai';
       
-      if (error.error?.type === 'overloaded_error' || error.status === 503) {
-        console.log(`⚠️ ${usedProvider} overloaded, falling back to ${fallbackProvider}`);
+    } catch (primaryError) {
+      console.error(`❌ Primary provider (${usedProvider}) failed:`, {
+        message: primaryError.message,
+        type: primaryError.error?.type,
+        status: primaryError.status,
+        code: primaryError.code
+      });
+
+      // Determine if we should attempt fallback
+      const shouldFallback = 
+        primaryError.error?.type === 'overloaded_error' || 
+        primaryError.status === 503 ||
+        primaryError.status === 429 ||
+        primaryError.message?.includes('overload') ||
+        primaryError.message?.includes('rate limit');
+
+      if (shouldFallback) {
+        // Attempt fallback provider
+        const fallbackProvider = usedProvider === 'openai' ? 'anthropic' : 'openai';
+        
+        console.log(`⚠️ ${usedProvider} overloaded/rate limited, attempting fallback to ${fallbackProvider}`);
+        
         try {
-          // Check if fallback provider is available
-          if (getBestAvailableProvider(fallbackProvider) === fallbackProvider) {
-            response = await createAIStreamingResponse(message, preferences, fallbackProvider);
-            console.log(`✅ ${fallbackProvider} fallback response received successfully`);
+          // Verify fallback provider is available
+          const fallbackAvailable = getBestAvailableProvider(fallbackProvider) === fallbackProvider;
+          
+          if (fallbackAvailable) {
+            response = await createAIJSONResponse(message, preferences, fallbackProvider);
             
-            return new Response(response, {
+            const responseTime = Date.now() - startTime;
+            console.log(`✅ ${fallbackProvider} fallback successful:`, {
+              responseTime: `${responseTime}ms`,
+              originalError: primaryError.message
+            });
+            
+            // Both providers now return JSON
+            return NextResponse.json(response, {
               headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
                 'X-AI-Provider': fallbackProvider,
+                'X-Fallback-Used': 'true',
+                'X-Original-Provider': usedProvider,
+                'X-Response-Time': `${responseTime}ms`
               },
             });
           } else {
             throw new Error(`Fallback provider ${fallbackProvider} is not available`);
           }
+          
         } catch (fallbackError) {
           console.error('❌ Both AI providers failed:', {
-            primary: error.message,
-            fallback: fallbackError.message
+            primary: {
+              provider: usedProvider,
+              error: primaryError.message,
+              type: primaryError.error?.type
+            },
+            fallback: {
+              provider: fallbackProvider,
+              error: fallbackError.message,
+              type: fallbackError.error?.type
+            }
           });
-          return NextResponse.json(
-            { error: 'Both AI services are currently unavailable. Please try again later.' },
-            { status: 503 }
+          
+          return createErrorResponse(
+            'Both AI services are currently unavailable. Please try again later.',
+            503,
+            {
+              primaryProvider: usedProvider,
+              fallbackProvider: fallbackProvider,
+              primaryError: primaryError.message,
+              fallbackError: fallbackError.message
+            }
           );
         }
       } else {
-        // Re-throw non-overload errors
-        console.error(`❌ ${usedProvider} API error (non-overload):`, {
-          type: error.error?.type,
-          message: error.message
+        // Re-throw non-fallback errors with enhanced context
+        console.error(`❌ ${usedProvider} API error (non-fallback):`, {
+          type: primaryError.error?.type,
+          message: primaryError.message,
+          status: primaryError.status,
+          code: primaryError.code
         });
-        throw error;
+        throw primaryError;
       }
     }
 
-
   } catch (error) {
-    console.error('Chat API error:', error);
+    const responseTime = Date.now() - startTime;
+    console.error('💥 Chat API critical error:', {
+      message: error.message,
+      type: error.error?.type,
+      status: error.status,
+      stack: error.stack,
+      responseTime: `${responseTime}ms`
+    });
     
+    // Enhanced error categorization
     if (error.message.includes('required') || error.message.includes('must be')) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
+      return createErrorResponse(error.message, 400);
     }
 
     if (error.error?.type === 'overloaded_error') {
-      return NextResponse.json(
-        { error: 'The AI service is experiencing high demand. Please try again in a moment.' },
-        { status: 503 }
+      return createErrorResponse(
+        'The AI service is experiencing high demand. Please try again in a moment.',
+        503
       );
     }
 
     if (error.error?.type === 'rate_limit_error') {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded. Please wait before sending another message.' },
-        { status: 429 }
+      return createErrorResponse(
+        'Rate limit exceeded. Please wait before sending another message.',
+        429
       );
     }
 
-    return NextResponse.json(
-      { error: 'An unexpected error occurred. Please try again.' },
-      { status: 500 }
+    if (error.error?.type === 'invalid_request_error') {
+      return createErrorResponse(
+        'Invalid request format. Please check your input.',
+        400
+      );
+    }
+
+    if (error.status === 401 || error.message.includes('API key')) {
+      return createErrorResponse(
+        'Authentication failed. Please check API configuration.',
+        503
+      );
+    }
+
+    return createErrorResponse(
+      'An unexpected error occurred. Please try again.',
+      500,
+      { 
+        errorType: error.error?.type || 'unknown',
+        responseTime: `${responseTime}ms`
+      }
     );
   }
 }
@@ -153,7 +288,8 @@ export async function OPTIONS() {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400' // 24 hours
     },
   });
 }
