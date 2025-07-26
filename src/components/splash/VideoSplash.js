@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
 // Hook to detect user's motion preference
@@ -25,14 +26,19 @@ const useReducedMotion = () => {
 
 const VideoSplash = ({
   videoSrc = "/splash-video.mp4",
-  companyName = "COMPANY NAME",
-  tagline = "Your tagline here",
+  companyName = "CC AI Agent",
+  tagline = "Your intelligent AI assistant for credit card recommendations and financial insights",
   showCTA = true,
-  onCTAClick = () => {}
+  onCTAClick
 }) => {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [hasVideoError, setHasVideoError] = useState(false);
   const videoRef = useRef(null);
+  const router = useRouter();
+
+  const handleSignIn = () => {
+    router.push('/login');
+  };
 
   // Handle video load and error states
   useEffect(() => {
@@ -139,17 +145,25 @@ const VideoSplash = ({
               {tagline}
             </p>
 
-            {/* CTA Button */}
+            {/* CTA Buttons */}
             {showCTA && (
-              <div
-              >
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Button
                   size="lg"
                   className="bg-white/20 backdrop-blur-sm hover:bg-white/30 border border-white/30 text-white font-semibold px-8 py-3 text-lg transition-all duration-300 hover:scale-105 focus:scale-105 cursor-pointer"
-                  onClick={onCTAClick}
+                  onClick={onCTAClick || handleSignIn}
                   aria-label="Get started with our platform"
                 >
                   Get Started
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="bg-transparent backdrop-blur-sm hover:bg-white/10 border-2 border-white/50 text-white font-semibold px-8 py-3 text-lg transition-all duration-300 hover:scale-105 focus:scale-105 cursor-pointer"
+                  onClick={handleSignIn}
+                  aria-label="Sign in to your account"
+                >
+                  Sign In
                 </Button>
               </div>
             )}

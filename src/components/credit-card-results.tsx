@@ -11,7 +11,13 @@ import {
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Star, CreditCard, DollarSign, Percent, Clock } from "lucide-react"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Star, CreditCard, Info, ExternalLink } from "lucide-react"
 
 interface CreditCardRecommendation {
   rank: number;
@@ -63,6 +69,11 @@ interface CreditCardResultsProps {
 }
 
 export function CreditCardResults({ results, isLoading, error }: CreditCardResultsProps) {
+  console.log('🏦 [CreditCardResults] Component props:', { results, isLoading, error });
+  console.log('🏦 [CreditCardResults] Results type:', typeof results);
+  console.log('🏦 [CreditCardResults] Has results:', !!results);
+  console.log('🏦 [CreditCardResults] Has recommendedCards:', !!results?.recommendedCards);
+  
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
@@ -104,98 +115,154 @@ export function CreditCardResults({ results, isLoading, error }: CreditCardResul
   }
 
   const renderCreditCard = (card: CreditCardRecommendation, index: number) => (
-    <Card key={`${card.rank}-${index}`} className="w-full">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Badge variant="secondary">#{card.rank}</Badge>
-              {card.cardName}
-            </CardTitle>
-            <CardDescription className="mt-1">
-              {card.issuer} • Match Score: {card.matchScore}%
-            </CardDescription>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center gap-1">
-              <Star className="h-4 w-4 fill-current text-yellow-500" />
-              <span className="font-semibold">{card.overallScore}</span>
+    <Card key={`${card.rank}-${index}`} className="w-full overflow-hidden">
+      <CardContent className="p-6">
+        {/* Two Column Layout */}
+        <div>
+          {/* Left Column: Visual and CTA */}
+          <div className="space-y-4">
+            {/* Credit Card Visual */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white relative overflow-hidden">
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30">#{card.rank}</Badge>
+                  <CreditCard className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-bold mb-1">{card.cardName}</h3>
+                <p className="text-xs opacity-90">{card.issuer}</p>
+              </div>
+              <div className="absolute -right-4 -bottom-4 opacity-10">
+                <CreditCard className="h-24 w-24" />
+              </div>
             </div>
-            <Badge variant={card.verificationDetails.dataQuality === "high" ? "default" : "secondary"}>
-              {card.verificationDetails.dataQuality} quality
+
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className={`h-4 w-4 ${i < Math.floor(card.overallScore / 2) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                ))}
+              </div>
+              <span className="font-semibold">{card.overallScore}/10</span>
+            </div>
+
+            <Button variant="outline" size="sm" className="w-full justify-start">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Rates & Fees
+            </Button>
+
+            <Button className="w-full bg-green-600 hover:bg-green-700 text-white">
+              Apply Now
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              on {card.issuer}'s application
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b">
+                <span className="font-medium text-sm">Annual Fee:</span>
+                <span className="font-semibold">
+                  {card.annualFee.amount === 0 ? "$0" : `$${card.annualFee.amount}`}
+                  {card.annualFee.waived && <Badge variant="outline" className="ml-2 text-xs">Waived</Badge>}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between py-2 border-b">
+                <div className="flex items-center gap-1">
+                  <span className="font-medium text-sm">Rewards Rate:</span>
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </div>
+                <span className="font-semibold">
+                  {card.rewards.categories.length > 0 
+                    ? `${Math.min(...card.rewards.categories.map(c => c.rate))}%–${Math.max(...card.rewards.categories.map(c => c.rate))}% Cashback`
+                    : `${card.rewards.baseRate}% Cashback`
+                  }
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between py-2 border-b">
+                <div className="flex items-center gap-1">
+                  <span className="font-medium text-sm">Intro Offer:</span>
+                  <Info className="h-3 w-3 text-muted-foreground" />
+                </div>
+                <span className="font-semibold text-green-600">
+                  ${card.rewards.estimatedAnnualValue}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between py-2">
+                <span className="font-medium text-sm">Recommended Credit Score:</span>
+                <div className="text-right">
+                  <span className="font-semibold">630–850</span>
+                  <p className="text-xs text-muted-foreground">
+                    Average – Excellent
+                  </p>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs text-blue-600">
+                    See your approval odds
+                  </Button>
+                </div>
+              </div>
+            </div>
+            
+            <Badge variant={card.verificationDetails.dataQuality.toLowerCase() === "high" ? "default" : "secondary"} className="w-fit">
+              {card.verificationDetails.dataQuality} quality data
             </Badge>
           </div>
         </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <DollarSign className="h-4 w-4" />
-              Annual Fee
-            </div>
-            <p className="text-lg font-semibold">
-              {card.annualFee.amount === 0 ? "No Fee" : `$${card.annualFee.amount}`}
-              {card.annualFee.waived && <Badge variant="outline" className="ml-2">Waived</Badge>}
-            </p>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Percent className="h-4 w-4" />
-              APR Range
-            </div>
-            <p className="text-sm text-muted-foreground">{card.aprRange.purchase}</p>
-          </div>
-        </div>
 
-        <Separator />
-
-        <div className="space-y-2">
-          <h4 className="font-medium">Rewards Structure</h4>
-          <Badge variant="outline" className="capitalize">{card.rewards.structure}</Badge>
-          
-          <div className="space-y-1">
-            {card.rewards.categories.map((category, idx) => (
-              <div key={idx} className="flex justify-between text-sm">
-                <span>{category.category}</span>
-                <span className="font-medium">
-                  {category.rate}%{category.cap && ` (${category.cap})`}
-                </span>
-              </div>
-            ))}
-            <div className="flex justify-between text-sm">
-              <span>Everything else</span>
-              <span className="font-medium">{card.rewards.baseRate}%</span>
-            </div>
-          </div>
-          
-          <div className="pt-2">
-            <p className="text-sm font-medium">
-              Estimated annual value: <span className="text-green-600">${card.rewards.estimatedAnnualValue}</span>
-            </p>
-          </div>
-        </div>
-
-        <Separator />
-
-        <div className="space-y-2">
-          <h4 className="font-medium flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Verification Details
-          </h4>
-          <div className="text-sm text-muted-foreground space-y-1">
-            <p>Confidence: {card.verificationDetails.confidenceScore}/10</p>
-            <p>Sources: {card.verificationDetails.sources.join(", ")}</p>
-            <p>Last verified: {new Date(card.verificationDetails.lastVerified).toLocaleDateString()}</p>
-          </div>
+        <div className="mt-6">
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="product-details" className="">
+              <AccordionTrigger className="text-left font-medium">
+                Product Details
+              </AccordionTrigger>
+              <AccordionContent className="space-y-3">
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1">•</span>
+                    <span>Cashback offer: ${card.rewards.estimatedAnnualValue} estimated annual value</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1">•</span>
+                    <span>{card.rewards.structure} rewards structure with {card.rewards.baseRate}% base rate</span>
+                  </li>
+                  {card.rewards.categories.map((category, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-muted-foreground mt-1">•</span>
+                      <span>{category.rate}% on {category.category}{category.cap && ` (${category.cap})`}</span>
+                    </li>
+                  ))}
+                  <li className="flex items-start gap-2">
+                    <span className="text-muted-foreground mt-1">•</span>
+                    <span>APR Range: {card.aprRange.purchase}</span>
+                  </li>
+                </ul>
+                
+                <Button variant="link" size="sm" className="h-auto p-0 text-blue-600">
+                  View Rates and Fees
+                </Button>
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="our-take" className="">
+              <AccordionTrigger className="text-left font-medium">
+                Our Take
+              </AccordionTrigger>
+              <AccordionContent className="space-y-3">
+                <div className="text-sm space-y-2">
+                  <p><strong>Match Score:</strong> {card.matchScore}% compatibility with your profile</p>
+                  <p><strong>Data Quality:</strong> {card.verificationDetails.dataQuality} confidence from {card.verificationDetails.sources.length} sources</p>
+                  <p><strong>Last Verified:</strong> {new Date(card.verificationDetails.lastVerified).toLocaleDateString()}</p>
+                  <p className="text-muted-foreground">
+                    This card ranks #{card.rank} based on your spending patterns and credit profile.
+                  </p>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       </CardContent>
-      
-      <CardFooter>
-        <Button className="w-full">Apply Now</Button>
-      </CardFooter>
     </Card>
   );
 
@@ -203,9 +270,9 @@ export function CreditCardResults({ results, isLoading, error }: CreditCardResul
     <div className="flex-1 p-6 space-y-6 overflow-auto">
       <div className="space-y-2">
         <h2 className="text-2xl font-bold">Credit Card Recommendations</h2>
-        <p className="text-muted-foreground">{results.summary}</p>
+        <p className="text-sm">{results.summary}</p>
         
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <div className="flex items-center gap-4 text-sm">
           <span>{results.searchMetadata.totalSearches} searches performed</span>
           <span>•</span>
           <span>Data from: {results.searchMetadata.sourcesConsulted.join(", ")}</span>
@@ -241,11 +308,11 @@ export function CreditCardResults({ results, isLoading, error }: CreditCardResul
           </div>
           <div>
             <span className="font-medium">Spending Pattern: </span>
-            <span className="text-muted-foreground">{results.userAnalysis.spendingPattern}</span>
+            <span className="text-xs">{results.userAnalysis.spendingPattern}</span>
           </div>
           <div className="space-y-1">
             <span className="font-medium">Recommendations:</span>
-            <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+            <ul className="list-disc list-inside space-y-1 text-xs">
               {results.userAnalysis.recommendations.map((rec, index) => (
                 <li key={index}>{rec}</li>
               ))}
@@ -254,8 +321,8 @@ export function CreditCardResults({ results, isLoading, error }: CreditCardResul
         </CardContent>
       </Card>
 
-      <div className="text-xs text-muted-foreground text-center">
-        Powered by {results.responseMetadata.provider} • Processed in {results.responseMetadata.processingTime}
+      <div className="text-xs text-center">
+        Processed in {results.responseMetadata.processingTime}
       </div>
     </div>
   );

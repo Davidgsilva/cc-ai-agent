@@ -17,13 +17,14 @@ export default function MainLayout() {
 
   const handlePromptSubmit = async (prompt, provider) => {
     console.log('🚀 [Frontend] Starting prompt submission:', { prompt, provider });
+    console.log('🚀 [Frontend] Function called with:', typeof prompt, typeof provider);
     setIsLoading(true);
     setError(null);
     setResults(null);
 
     try {
-      console.log('📤 [Frontend] Sending request to API...');
-      const response = await fetch('/api/chat', {
+      console.log('📤 [Frontend] Sending request to test API...');
+      const response = await fetch('/api/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -49,6 +50,9 @@ export default function MainLayout() {
       console.log('📄 [Frontend] Handling JSON response...');
       const data = await response.json();
       console.log('📊 [Frontend] Parsed JSON data:', data);
+      console.log('📊 [Frontend] Data type:', typeof data);
+      console.log('📊 [Frontend] Has recommendedCards:', !!data.recommendedCards);
+      console.log('📊 [Frontend] recommendedCards length:', data.recommendedCards?.length);
       setResults(data);
     } catch (err) {
       console.error('❌ [Frontend] Error during request:', err);
