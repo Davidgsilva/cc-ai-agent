@@ -2,8 +2,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Hook to detect user's motion preference
 const useReducedMotion = () => {
@@ -33,11 +35,30 @@ const VideoSplash = ({
 }) => {
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
   const [hasVideoError, setHasVideoError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const videoRef = useRef(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Check for OAuth errors
+  const error = searchParams.get('error');
+  const errorMessage = error === 'OAuthCallback' ? 'There was an issue with Google sign-in. Please try again.' : null;
 
   const handleSignIn = () => {
     router.push('/login');
+  };
+  
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      await signIn('google', { 
+        callbackUrl: '/',
+        redirect: true 
+      });
+    } catch (error) {
+      console.error('Sign in error:', error);
+      setIsLoading(false);
+    }
   };
 
   // Handle video load and error states
@@ -58,18 +79,29 @@ const VideoSplash = ({
     const handleCanPlay = () => {
       setIsVideoLoaded(true);
       setHasVideoError(false);
-      // Immediately play when video can play
       video.play().catch(error => {
         console.warn('Auto-play failed:', error);
         setHasVideoError(true);
       });
     };
 
+    const handleFirstInteraction = () => {
+      if (video.paused && hasVideoError) {
+        video.play().catch(error => {
+          console.warn('Interaction-triggered play failed:', error);
+        });
+      }
+      document.removeEventListener('touchstart', handleFirstInteraction);
+      document.removeEventListener('click', handleFirstInteraction);
+    };
+
+    document.addEventListener('touchstart', handleFirstInteraction);
+    document.addEventListener('click', handleFirstInteraction);
+
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('error', handleError);
 
-    // Immediately attempt to play if video is already ready
     if (video.readyState >= 3) {
       handleLoadedData();
       video.play().catch(error => {
@@ -77,7 +109,6 @@ const VideoSplash = ({
         setHasVideoError(true);
       });
     } else if (video.readyState >= 2) {
-      // Can play through - start playing immediately
       video.play().catch(error => {
         console.warn('Auto-play failed:', error);
         setHasVideoError(true);
@@ -88,8 +119,10 @@ const VideoSplash = ({
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('error', handleError);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+      document.removeEventListener('click', handleFirstInteraction);
     };
-  }, []);
+  }, [hasVideoError]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
@@ -106,6 +139,8 @@ const VideoSplash = ({
           playsInline
           preload="metadata"
           aria-label="Background video"
+          onPlay={() => setHasVideoError(false)}
+          onError={() => setHasVideoError(true)}
         >
           <source src={videoSrc} type="video/mp4" />
           Your browser does not support the video tag.
@@ -115,9 +150,6 @@ const VideoSplash = ({
         {(!isVideoLoaded || hasVideoError) && (
           <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-black" />
         )}
-
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/50 to-black/60" />
       </div>
 
       {/* Content Overlay */}
@@ -125,12 +157,10 @@ const VideoSplash = ({
         <div
           className="text-center max-w-4xl mx-auto"
         >
-                     {/* Glass Morphism Container */}
-           <div
-             className="md rounded-3xl p-8 sm:p-12 lg:p-16"
-           >
-
-
+          {/* Glass Morphism Container */}
+          <div
+            className="md rounded-3xl p-8 sm:p-12 lg:p-16"
+          >
             {/* Company Name */}
             <h1
               className="text-4xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-4 sm:mb-6 tracking-tight"
@@ -145,25 +175,37 @@ const VideoSplash = ({
               {tagline}
             </p>
 
+            {/* Error Message */}
+            {errorMessage && (
+              <div className="mb-6">
+                <Alert className="border-red-200 bg-red-50/90 backdrop-blur-sm">
+                  <AlertDescription className="text-red-800">
+                    {errorMessage}
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+            
             {/* CTA Buttons */}
             {showCTA && (
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Button
                   size="lg"
-                  className="bg-white/20 backdrop-blur-sm hover:bg-white/30 border border-white/30 text-white font-semibold px-8 py-3 text-lg transition-all duration-300 hover:scale-105 focus:scale-105 cursor-pointer"
-                  onClick={onCTAClick || handleSignIn}
-                  aria-label="Get started with our platform"
+                  className="text-white font-semibold px-8 py-3 text-lg transition-all duration-300 hover:scale-105 focus:scale-105 cursor-pointer"
+                  onClick={handleGoogleSignIn}
+                  disabled={isLoading}
+                  aria-label="Continue with Google"
                 >
-                  Get Started
+                  {isLoading ? 'Signing in...' : 'Continue with Google'}
                 </Button>
                 <Button
                   size="lg"
                   variant="outline"
-                  className="bg-transparent backdrop-blur-sm hover:bg-white/10 border-2 border-white/50 text-white font-semibold px-8 py-3 text-lg transition-all duration-300 hover:scale-105 focus:scale-105 cursor-pointer"
-                  onClick={handleSignIn}
-                  aria-label="Sign in to your account"
+                  className="text-white font-semibold px-8 py-3 text-lg transition-all duration-300 hover:scale-105 focus:scale-105 cursor-pointer"
+                  onClick={onCTAClick || handleSignIn}
+                  aria-label="Sign in with email"
                 >
-                  Sign In
+                  Sign in with Email
                 </Button>
               </div>
             )}

@@ -1,5 +1,6 @@
-import { Calendar, Home, Inbox, Search, Settings, User2, ChevronUp, Send } from "lucide-react"
+import { Calendar, Home, Inbox, Search, Settings, User2, ChevronUp, Send, LogOut } from "lucide-react"
 import { useState } from "react"
+import { useSession, signOut } from "next-auth/react"
 
 import {
   Sidebar,
@@ -110,6 +111,66 @@ export function AppSidebar({ onPromptSubmit, selectedProvider = "openai", isLoad
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      <SidebarFooter>
+        <UserDropdown />
+      </SidebarFooter>
     </Sidebar>
+  )
+}
+
+function UserDropdown() {
+  const { data: session, status } = useSession()
+
+  if (status === "loading") {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton disabled>
+            <User2 className="w-4 h-4" />
+            <span>Loading...</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
+
+  if (!session?.user) {
+    return null
+  }
+
+  const handleSignOut = () => {
+    signOut({ callbackUrl: '/splash' })
+  }
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <SidebarMenuButton className="w-full justify-start">
+              <User2 className="w-4 h-4" />
+              <span className="truncate">
+                {session.user.name || session.user.email || 'User'}
+              </span>
+              <ChevronUp className="ml-auto w-4 h-4" />
+            </SidebarMenuButton>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="top"
+            className="w-[--radix-popper-anchor-width]"
+          >
+            <DropdownMenuItem>
+              <Settings className="w-4 h-4 mr-2" />
+              <span>Account Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut}>
+              <LogOut className="w-4 h-4 mr-2" />
+              <span>Sign out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   )
 }

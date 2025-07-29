@@ -6,6 +6,7 @@ import { generateRandomToken } from './utils'
 import bcrypt from 'bcryptjs'
 
 export const authOptions = {
+  debug: process.env.NODE_ENV === 'development',
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -52,14 +53,77 @@ export const authOptions = {
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60, // 7 days
   },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    },
+    pkceCodeVerifier: {
+      name: `next-auth.pkce.code_verifier`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 15 * 60 // 15 minutes
+      }
+    },
+    state: {
+      name: `next-auth.state`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 15 * 60 // 15 minutes
+      }
+    },
+    nonce: {
+      name: `next-auth.nonce`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production'
+      }
+    }
+  },
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
+      console.log('[AUTH] signIn callback triggered', { provider: account?.provider, userEmail: user?.email })
+      
       if (account.provider === "google") {
         try {
+          console.log('[AUTH] Processing Google sign-in for:', user.email)
+          
           // Check if user already exists
           const existingUser = await getUserByEmail(user.email)
+          console.log('[AUTH] Existing user found:', !!existingUser)
           
           if (!existingUser) {
+            console.log('[AUTH] Creating new user...')
             // Create new user
             const newUser = await createUser({
               email: user.email,
@@ -69,14 +133,22 @@ export const authOptions = {
               providerId: user.id,
               emailVerified: true // Google emails are pre-verified
             })
+            console.log('[AUTH] New user created:', newUser._id)
             
-            // Send welcome email
-            await sendWelcomeEmail(user.email, user.name)
+            // Send welcome email (non-blocking)
+            try {
+              await sendWelcomeEmail(user.email, user.name)
+              console.log('[AUTH] Welcome email sent successfully')
+            } catch (emailError) {
+              console.warn('[AUTH] Welcome email failed (non-critical):', emailError.message)
+            }
+          } else {
+            console.log('[AUTH] User already exists, proceeding with login')
           }
           
           return true
         } catch (error) {
-          console.error('Error during sign in:', error)
+          console.error('[AUTH] Error during sign in:', error)
           return false
         }
       }
@@ -105,5 +177,7 @@ export const authOptions = {
   },
   pages: {
     signIn: '/splash',
+    error: '/splash',
   },
+  trustHost: true,
 }
