@@ -80,7 +80,14 @@ export function LoginForm({
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
-    await signIn('google', { callbackUrl: '/' })
+    setError('')
+    try {
+      await signIn('google', { callbackUrl: '/' })
+    } catch (error) {
+      console.error('Google sign-in error:', error)
+      setError('Google sign-in failed. Please try again.')
+      setIsLoading(false)
+    }
   }
 
   return (

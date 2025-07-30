@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import { parseCreditsCardsFromText, enhanceCardWithWebData } from '../../../utils/cardParser.js';
 
 // OpenAI configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;

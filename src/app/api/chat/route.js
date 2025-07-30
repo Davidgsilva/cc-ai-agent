@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAnthropicJSONResponse } from '../utils/anthropic.js';
 import { createOpenAIJSONResponse } from '../utils/openai.js';
 import { getProviderInfo, getBestAvailableProvider } from '../utils/providers.js';
-import { validateChatRequest, validateCreditCardData } from '../utils/validation.js';
-import { parseCreditsCardsFromText, enhanceCardWithWebData } from '../../../utils/cardParser.js';
+import { validateChatRequest } from '../utils/validation.js';
+import { userDataHandler } from '../../../lib/userDataHandler.js';
+import { requireAuth, getClientMetadata } from '../../../lib/authMiddleware.js';
 
 // Enhanced AI JSON response with validation
 const createAIJSONResponse = async (userMessage, userPreferences = {}, provider) => {
@@ -50,26 +51,20 @@ const createErrorResponse = (message, status, details = {}) => {
   );
 };
 
-export async function POST(request) {
+export const POST = requireAuth(async function(request) {
   const startTime = Date.now();
   
   try {
-    // Enhanced client identification
-    const clientIP = request.ip || 
-                    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
-                    request.headers.get('x-real-ip') || 
-                    'unknown';
-    
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    // Get client metadata and user info
+    const clientMetadata = getClientMetadata(request);
+    const user = request.user; // Added by requireAuth middleware (guaranteed to exist)
     
     console.log('📥 Incoming chat request:', {
-      clientIP,
-      userAgent: userAgent.substring(0, 100),
-      timestamp: new Date().toISOString()
+      clientIP: clientMetadata.clientIP,
+      userAgent: clientMetadata.userAgent.substring(0, 100),
+      timestamp: clientMetadata.timestamp,
+      authenticated: true
     });
-
-    // Rate limiting can be added here if needed
-    console.log('📡 Request from client:', { clientIP });
 
     // Parse and validate request body
     let body;
@@ -79,7 +74,7 @@ export async function POST(request) {
       return createErrorResponse('Invalid JSON in request body', 400);
     }
 
-    const { message, preferences, provider } = validateChatRequest(body);
+    const { message, preferences, provider, conversationId } = validateChatRequest(body);
 
     console.log('📝 Validated chat request:', {
       messageLength: message.length,
@@ -133,6 +128,57 @@ export async function POST(request) {
         provider: usedProvider,
         responseTime: `${responseTime}ms`
       });
+
+      // Store user interaction data
+      try {
+        // Get or create conversation
+        let currentConversationId = conversationId;
+        
+        if (!currentConversationId) {
+          const newConversation = await userDataHandler.createConversation(
+            user._id.toString(),
+            {
+              title: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+              provider: usedProvider,
+              ...clientMetadata
+            }
+          );
+          currentConversationId = newConversation._id.toString();
+        }
+
+        // Store user message
+        await userDataHandler.addMessage(
+          user._id.toString(),
+          currentConversationId,
+          {
+            type: 'user',
+            content: message,
+            provider: usedProvider,
+            preferences,
+            responseTime: null
+          }
+        );
+
+        // Store assistant response
+        await userDataHandler.addMessage(
+          user._id.toString(),
+          currentConversationId,
+          {
+            type: 'assistant',
+            content: JSON.stringify(response),
+            provider: usedProvider,
+            model: usedProvider === 'openai' ? 'gpt-4' : 'claude-3-5-sonnet-20241022',
+            responseTime,
+            preferences
+          }
+        );
+
+        // Add conversation ID to response
+        response.conversationId = currentConversationId;
+        
+      } catch (storageError) {
+        console.warn('📝 User data storage failed (non-critical):', storageError.message);
+      }
       
       // Both providers now return JSON
       return NextResponse.json(response, {
@@ -177,6 +223,57 @@ export async function POST(request) {
               responseTime: `${responseTime}ms`,
               originalError: primaryError.message
             });
+
+            // Store user interaction data (fallback case)
+            try {
+              // Get or create conversation
+              let currentConversationId = conversationId;
+              
+              if (!currentConversationId) {
+                const newConversation = await userDataHandler.createConversation(
+                  user._id.toString(),
+                  {
+                    title: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+                    provider: fallbackProvider,
+                    ...clientMetadata
+                  }
+                );
+                currentConversationId = newConversation._id.toString();
+              }
+
+              // Store user message
+              await userDataHandler.addMessage(
+                user._id.toString(),
+                currentConversationId,
+                {
+                  type: 'user',
+                  content: message,
+                  provider: fallbackProvider,
+                  preferences,
+                  responseTime: null
+                }
+              );
+
+              // Store assistant response
+              await userDataHandler.addMessage(
+                user._id.toString(),
+                currentConversationId,
+                {
+                  type: 'assistant',
+                  content: JSON.stringify(response),
+                  provider: fallbackProvider,
+                  model: fallbackProvider === 'openai' ? 'gpt-4' : 'claude-3-5-sonnet-20241022',
+                  responseTime,
+                  preferences
+                }
+              );
+
+              // Add conversation ID to response
+              response.conversationId = currentConversationId;
+              
+            } catch (storageError) {
+              console.warn('📝 User data storage failed (non-critical):', storageError.message);
+            }
             
             // Both providers now return JSON
             return NextResponse.json(response, {
@@ -280,7 +377,7 @@ export async function POST(request) {
       }
     );
   }
-}
+});
 
 export async function OPTIONS() {
   return new Response(null, {

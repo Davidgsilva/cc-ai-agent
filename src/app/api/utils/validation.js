@@ -1,5 +1,5 @@
 export function validateChatRequest(body) {
-  const { message, preferences, provider } = body;
+  const { message, preferences, provider, conversationId } = body;
 
   if (!message || typeof message !== 'string') {
     throw new Error('Message is required and must be a string');
@@ -17,13 +17,18 @@ export function validateChatRequest(body) {
     throw new Error('Provider must be either "openai" or "anthropic"');
   }
 
+  if (conversationId && typeof conversationId !== 'string') {
+    throw new Error('Conversation ID must be a string');
+  }
+
   // Enhanced validation for preferences
   const validatedPreferences = validateUserPreferences(preferences || {});
 
   return {
     message: message.trim(),
     preferences: validatedPreferences,
-    provider: provider || null
+    provider: provider || null,
+    conversationId: conversationId || null
   };
 }
 

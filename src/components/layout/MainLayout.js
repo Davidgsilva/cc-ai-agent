@@ -23,7 +23,7 @@ export default function MainLayout() {
     setResults(null);
 
     try {
-      console.log('📤 [Frontend] Sending request to test API...');
+      console.log('📤 [Frontend] Sending request to chat API...');
       const response = await fetch('/api/test', {
         method: 'POST',
         headers: {

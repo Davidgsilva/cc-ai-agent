@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import anthropic, { webSearchTool } from '../utils/anthropic.js';
 import { validateSearchRequest, searchRateLimiter } from '../utils/validation.js';
+import { userDataHandler } from '../../../lib/userDataHandler.js';
+import { optionalAuth, getClientMetadata } from '../../../lib/authMiddleware.js';
 
 const searchCache = new Map();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes

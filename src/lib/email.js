@@ -7,7 +7,7 @@ export async function sendVerificationEmail(email, name, verificationToken) {
   
   try {
     const data = await resend.emails.send({
-      from: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+      from: process.env.FROM_EMAIL || 'CC AI Agent <onboarding@resend.dev>',
       to: [email],
       subject: 'Verify your email address',
       html: getVerificationEmailTemplate(name, verificationUrl)
@@ -23,7 +23,7 @@ export async function sendVerificationEmail(email, name, verificationToken) {
 export async function sendWelcomeEmail(email, name) {
   try {
     const data = await resend.emails.send({
-      from: process.env.FROM_EMAIL || 'noreply@yourdomain.com',
+      from: process.env.FROM_EMAIL || 'CC AI Agent <onboarding@resend.dev>',
       to: [email],
       subject: 'Welcome to CC AI Agent!',
       html: getWelcomeEmailTemplate(name)
@@ -32,6 +32,36 @@ export async function sendWelcomeEmail(email, name) {
     return { success: true, data }
   } catch (error) {
     console.error('Error sending welcome email:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function sendConfirmationEmail(email, name) {
+  console.log(`[EMAIL] Attempting to send confirmation email to: ${email}`)
+  console.log(`[EMAIL] FROM_EMAIL env var: ${process.env.FROM_EMAIL || 'not set'}`)
+  console.log(`[EMAIL] RESEND_API_KEY configured: ${process.env.RESEND_API_KEY ? 'yes' : 'no'}`)
+  
+  try {
+    const emailData = {
+      from: process.env.FROM_EMAIL || 'CC AI Agent <onboarding@resend.dev>',
+      to: [email],
+      subject: 'Welcome to CC AI Agent - Account Created!',
+      html: getConfirmationEmailTemplate(name)
+    }
+    
+    console.log(`[EMAIL] Sending email with config:`, {
+      from: emailData.from,
+      to: emailData.to,
+      subject: emailData.subject
+    })
+    
+    const data = await resend.emails.send(emailData)
+    
+    console.log(`[EMAIL] Resend response:`, data)
+    return { success: true, data }
+  } catch (error) {
+    console.error('[EMAIL] Error sending confirmation email:', error)
+    console.error('[EMAIL] Error details:', error.response?.data || error.message)
     return { success: false, error: error.message }
   }
 }
@@ -180,6 +210,55 @@ function getWelcomeEmailTemplate(name) {
             </div>
             <div class="footer">
                 <p>&copy; 2024 CC AI Agent. All rights reserved.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+  `
+}
+
+function getConfirmationEmailTemplate(name) {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Account Created Successfully!</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+        <div style="background: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; text-align: center;">
+                <h1 style="margin: 0; font-size: 28px; font-weight: 700;">🎉 Welcome to CC AI Agent!</h1>
+                <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Your account has been successfully created</p>
+            </div>
+            <div style="padding: 40px 30px;">
+                <h2 style="color: #333; margin: 0 0 20px 0; font-size: 24px;">Hi ${name || 'there'}!</h2>
+                <p style="margin: 0 0 20px 0; font-size: 16px; color: #555;">Great news! Your CC AI Agent account has been successfully created using your Google account. You're all set to start exploring our AI-powered features.</p>
+                
+                <div style="background: #f8f9ff; border-left: 4px solid #667eea; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+                    <h3 style="margin: 0 0 15px 0; color: #667eea; font-size: 18px;">🚀 What you can do now:</h3>
+                    <ul style="margin: 0; padding-left: 20px; color: #555;">
+                        <li style="margin: 8px 0;">Chat with our advanced AI assistant</li>
+                        <li style="margin: 8px 0;">Access intelligent search capabilities</li>
+                        <li style="margin: 8px 0;">Get personalized recommendations</li>
+                        <li style="margin: 8px 0;">Explore all premium features</li>
+                    </ul>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="${process.env.NEXTAUTH_URL || 'https://your-domain.com'}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-decoration: none; padding: 15px 30px; border-radius: 8px; font-weight: 600; font-size: 16px; box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3); transition: transform 0.2s;">Get Started</a>
+                </div>
+                
+                <p style="margin: 25px 0 0 0; font-size: 14px; color: #666; text-align: center;">Since you signed up with Google, your email is already verified and you can start using all features immediately.</p>
+                
+                <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+                
+                <p style="margin: 0; font-size: 14px; color: #888; text-align: center;">Need help? Contact our support team or visit our help center.</p>
+            </div>
+            <div style="background: #f8f9fa; padding: 25px 20px; text-align: center; border-top: 1px solid #eee;">
+                <p style="margin: 0; font-size: 14px; color: #666;">&copy; 2024 CC AI Agent. All rights reserved.</p>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #999;">This email was sent because you created an account with CC AI Agent.</p>
             </div>
         </div>
     </body>

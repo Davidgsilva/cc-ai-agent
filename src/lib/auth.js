@@ -1,7 +1,7 @@
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { getUserByEmail, createUser } from './db'
-import { sendWelcomeEmail } from './email'
+import { sendWelcomeEmail, sendConfirmationEmail } from './email'
 import { generateRandomToken } from './utils'
 import bcrypt from 'bcryptjs'
 
@@ -135,12 +135,12 @@ export const authOptions = {
             })
             console.log('[AUTH] New user created:', newUser._id)
             
-            // Send welcome email (non-blocking)
+            // Send confirmation email (non-blocking)
             try {
-              await sendWelcomeEmail(user.email, user.name)
-              console.log('[AUTH] Welcome email sent successfully')
+              await sendConfirmationEmail(user.email, user.name)
+              console.log('[AUTH] Confirmation email sent successfully')
             } catch (emailError) {
-              console.warn('[AUTH] Welcome email failed (non-critical):', emailError.message)
+              console.warn('[AUTH] Confirmation email failed (non-critical):', emailError.message)
             }
           } else {
             console.log('[AUTH] User already exists, proceeding with login')

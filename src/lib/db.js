@@ -28,7 +28,7 @@ export default clientPromise
 
 export async function getDatabase() {
   const client = await clientPromise
-  return client.db(process.env.MONGODB_DATABASE || 'cc-ai-agent')
+  return client.db(process.env.MONGODB_DB_NAME)
 }
 
 export async function getUserByEmail(email) {
